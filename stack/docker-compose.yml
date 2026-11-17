@@ -1,0 +1,69 @@
+# HomeCore OS — container stack.
+# Every service uses the host network: no Docker NAT/iptables magic, so the
+# HomeCore nftables firewall is the single place that decides what is reachable.
+# Settings live in .env next to this file. Manage with: homecore start|stop|restart|logs
+
+x-hardening: &hardening
+  restart: unless-stopped
+  network_mode: host
+  security_opt:
+    - no-new-privileges:true
+  logging:
+    driver: local
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  mosquitto:
+    <<: *hardening
+    image: eclipse-mosquitto:${MOSQUITTO_VERSION:-2}
+    container_name: homecore-mosquitto
+    user: "1883:1883"
+    read_only: true
+    cap_drop: [ALL]
+    tmpfs:
+      - /tmp:size=4m
+    volumes:
+      - ./config/mosquitto:/mosquitto/config:ro
+      - ./data/mosquitto:/mosquitto/data
+      - ./secrets/cli:/cli:ro
+    mem_limit: ${MOSQUITTO_MEM_LIMIT:-48m}
+    pids_limit: 64
+
+  homeassistant:
+    <<: *hardening
+    image: ghcr.io/home-assistant/home-assistant:${HA_VERSION:-stable}
+    container_name: homecore-homeassistant
+    environment:
+      TZ: ${TZ:-UTC}
+    volumes:
+      - ./config/homeassistant:/config
+      - /etc/localtime:/etc/localtime:ro
+      - /run/dbus:/run/dbus:ro          # BlueZ (Bluetooth) via D-Bus
+    cap_add: [NET_ADMIN, NET_RAW]       # needed for Bluetooth LE scanning only
+    mem_limit: ${HA_MEM_LIMIT:-640m}
+    depends_on: [mosquitto]
+
+  zigbee2mqtt:
+    <<: *hardening
+    profiles: [zigbee]                  # enabled by: homecore zigbee enable
+    image: ghcr.io/koenkk/zigbee2mqtt:${Z2M_VERSION:-latest}
+    container_name: homecore-zigbee2mqtt
+    user: "${HC_UID:-1000}:${HC_GID:-1000}"
+    group_add: ["${DIALOUT_GID:-20}"]
+    cap_drop: [ALL]
+    environment:
+      TZ: ${TZ:-UTC}
+      ZIGBEE2MQTT_CONFIG_SERIAL_PORT: /dev/ttyZigbee
+      ZIGBEE2MQTT_CONFIG_SERIAL_ADAPTER: ${ZIGBEE_ADAPTER:-zstack}
+    env_file:
+      - path: ./secrets/zigbee2mqtt.env  # MQTT credentials + frontend token
+        required: false
+    devices:
+      - ${ZIGBEE_DEVICE:-/dev/null}:/dev/ttyZigbee
+    volumes:
+      - ./data/zigbee2mqtt:/app/data
+      - /run/udev:/run/udev:ro
+    mem_limit: ${Z2M_MEM_LIMIT:-256m}
+    depends_on: [mosquitto]

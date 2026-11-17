@@ -1,0 +1,28 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: sudo apt-get update -q && sudo apt-get install -y -q shellcheck nftables
+      - name: shellcheck
+        run: shellcheck -x -P SCRIPTDIR/.. scripts/*.sh system/motd/20-homecore
+      - name: Unit tests (incl. nft ruleset validation as root)
+        run: sudo python3 -m unittest discover -s tests -v
+      - name: Compose file is valid
+        run: cp stack/env.example stack/.env && docker compose -f stack/docker-compose.yml --project-directory stack config -q
+      - name: Build kit
+        run: scripts/make-dist.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: homecore-os
+          path: dist/

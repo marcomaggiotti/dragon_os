@@ -1,0 +1,27 @@
+# HomeCore OS — SSH hardening. Managed by scripts/harden.sh (re-run it after editing).
+# Validate any manual change with: sudo sshd -t
+PermitRootLogin no
+PasswordAuthentication @PASSWORD_AUTH@
+KbdInteractiveAuthentication no
+PermitEmptyPasswords no
+PubkeyAuthentication yes
+AuthenticationMethods @AUTH_METHODS@
+@ALLOW_USERS@
+MaxAuthTries 3
+MaxSessions 4
+MaxStartups 4:50:10
+LoginGraceTime 20
+ClientAliveInterval 300
+ClientAliveCountMax 2
+X11Forwarding no
+AllowAgentForwarding no
+AllowTcpForwarding no
+AllowStreamLocalForwarding no
+PermitTunnel no
+PermitUserEnvironment no
+LogLevel VERBOSE
+# Crypto: keep OpenSSH's modern defaults (incl. post-quantum key exchange on
+# OpenSSH 9.x/10.x) and remove the legacy algorithms still enabled by default.
+KexAlgorithms -diffie-hellman-group14-sha256,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512,ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,diffie-hellman-group-exchange-sha256
+Ciphers -aes128-ctr,aes192-ctr,aes256-ctr
+MACs -umac-64-etm@openssh.com,umac-64@openssh.com,umac-128@openssh.com,hmac-sha1-etm@openssh.com,hmac-sha1,hmac-sha2-256,hmac-sha2-512

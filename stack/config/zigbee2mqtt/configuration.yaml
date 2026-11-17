@@ -1,0 +1,26 @@
+# HomeCore OS — Zigbee2MQTT (settings schema v5, Zigbee2MQTT 2.x)
+# Serial port, adapter, MQTT credentials and frontend token are injected through
+# environment variables (see docker-compose.yml and secrets/zigbee2mqtt.env).
+# NOTE: Zigbee2MQTT writes the generated network key — and the injected
+# credentials — back into this file. The directory is 0700 and must stay private.
+version: 5
+homeassistant:
+  enabled: true
+mqtt:
+  base_topic: zigbee2mqtt
+  server: mqtt://127.0.0.1:1883
+serial:
+  port: /dev/ttyZigbee
+advanced:
+  # Random keys are generated on first start and written back to this file.
+  network_key: GENERATE
+  pan_id: GENERATE
+  ext_pan_id: GENERATE
+  log_level: warning
+  log_output:
+    - console
+frontend:
+  enabled: true
+  port: 8080
+# Pairing ("permit join") is off by default and only opened on demand, with a
+# time limit, from the frontend or: homecore zigbee pair

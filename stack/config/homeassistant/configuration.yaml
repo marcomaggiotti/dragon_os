@@ -1,0 +1,42 @@
+# HomeCore OS — lean Home Assistant configuration.
+# Instead of `default_config:` (which loads ~30 integrations) only the
+# essentials are enabled. Add more as you need them.
+
+homeassistant:
+  name: HomeCore
+
+frontend:
+config:
+history:
+logbook:
+system_health:
+mobile_app:
+sun:
+zeroconf:
+bluetooth:   # HOMECORE_BLUETOOTH  (removed when installed with --no-bluetooth)
+
+automation: !include automations.yaml
+script: !include scripts.yaml
+scene: !include scenes.yaml
+
+# Fewer, smaller database writes — protects the microSD card.
+recorder:
+  purge_keep_days: 5
+  commit_interval: 30
+  exclude:
+    domains:
+      - update
+
+logger:
+  default: warning
+
+http:
+  # Ban an IP after 5 failed logins (bans are stored in ip_bans.yaml).
+  ip_ban_enabled: true
+  login_attempts_threshold: 5
+  # Only enable the two lines below if you use `tailscale serve` (docs/NETWORKING.md).
+  # use_x_forwarded_for: true
+  # trusted_proxies: [127.0.0.1, ::1]
+
+# No LLM / conversation agent is configured by default.
+# Read docs/PROMPT-INJECTION.md before adding one.

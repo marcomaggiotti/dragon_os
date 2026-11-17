@@ -1,0 +1,3 @@
+#!/bin/sh
+v=$(cat /opt/homecore/VERSION 2>/dev/null || echo "?")
+printf '\n  HomeCore OS %s  ·  type \033[1mhomecore\033[0m for the control menu\n\n' "$v"
