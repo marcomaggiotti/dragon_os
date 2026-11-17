@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
-# HomeCore OS — backup configuration, data and secrets.
+# HomeCore OS — back up settings, device inventory, alerts and scan reports.
 #
-#   backup.sh [--full] [--quiet] [--dest DIR]
-#     --full   also include the Home Assistant history database (briefly stops HA)
+#   backup.sh [--quiet] [--dest DIR]
 #     --dest   override BACKUP_DIR from /etc/homecore/homecore.env
 #
-# Archives are root-only (they contain secrets). If BACKUP_PASSFILE is set they are
+# Archives are root-only (they describe your network's weak spots). If BACKUP_PASSFILE is set they are
 # encrypted with AES-256 (openssl, PBKDF2). Keep backups OFF the microSD card.
 set -Eeuo pipefail
 # shellcheck source=scripts/lib.sh
@@ -13,10 +12,9 @@ set -Eeuo pipefail
 require_root "$@"
 load_env
 
-FULL=0 QUIET=0 DEST=${BACKUP_DIR:-$HC_ROOT/backups}
+QUIET=0 DEST=${BACKUP_DIR:-$HC_ROOT/backups}
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --full) FULL=1 ;;
     --quiet) QUIET=1 ;;
     --dest) DEST=$2; shift ;;
     *) die "Unknown option: $1" ;;
@@ -26,28 +24,16 @@ done
 say() { if (( ! QUIET )); then log "$@"; fi; }
 
 install -d -m 0700 "$DEST"
-stamp=$(date +%Y%m%d-%H%M%S)
-name="homecore-$(hostname)-$stamp.tar.gz"
-out="$DEST/$name"
+out="$DEST/homecore-$(hostname)-$(date +%Y%m%d-%H%M%S).tar.gz"
 umask 077
 
-excludes=(--exclude='data/mosquitto/*.db.new'
-          --exclude='config/homeassistant/tts' --exclude='config/homeassistant/.cache')
-restart_ha=0
-if (( FULL )); then
-  if container_running homecore-homeassistant; then
-    say "Stopping Home Assistant for a consistent database copy…"
-    compose stop homeassistant >/dev/null; restart_ha=1
-  fi
-else
-  excludes+=(--exclude='config/homeassistant/home-assistant_v2.db*')
-fi
-
+# Paths are stored relative to / so restore.sh can put them back in place.
+items=()
+for p in "${HC_ETC#/}" var/lib/homecore; do
+  if [[ -e "/$p" ]]; then items+=("$p"); fi
+done
 say "Writing $out…"
-tar -C "$HC_ROOT" "${excludes[@]}" -czf "$out" \
-  .env config data secrets \
-  -C / "${HC_ETC#/}" || tar_rc=$?
-if (( restart_ha )); then compose start homeassistant >/dev/null; fi
+tar -C / -czf "$out" "${items[@]}" || tar_rc=$?
 if (( ${tar_rc:-0} > 1 )); then rm -f "$out"; die "tar failed (exit ${tar_rc})."; fi
 
 if [[ -n "${BACKUP_PASSFILE:-}" ]]; then

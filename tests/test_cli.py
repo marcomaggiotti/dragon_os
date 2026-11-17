@@ -24,11 +24,11 @@ def run_cli(*argv):
 class CliTests(unittest.TestCase):
     def test_parser_accepts_documented_commands(self):
         p = homecore.build_parser()
-        for argv in (["status"], ["network", "test"], ["network", "neighbors"], ["bluetooth", "scan"],
-                     ["mqtt", "add", "kitchen-node", "--role", "device"], ["mqtt", "listen", "zigbee2mqtt/#"],
-                     ["zigbee", "enable", "/dev/serial/by-id/usb-x", "ember"], ["zigbee", "pair", "--seconds", "60"],
-                     ["security", "--json"], ["guard", "ha"], ["guard", "check", "--context", "name", "x"],
-                     ["firewall", "apply"], ["logs", "ha", "-f"], ["restart", "ha"], ["version"]):
+        for argv in (["status"], ["boot"], ["discover", "--target", "192.168.1.0/24"], ["scan"],
+                     ["scan", "deep", "--cve-lookup"], ["report", "--all"], ["devices", "trust", "aa:bb", "TV"],
+                     ["alerts", "-n", "5"], ["wifi", "--ssid", "Home"], ["network", "test"],
+                     ["security", "--json"], ["guard", "report"], ["guard", "check", "--context", "name", "x"],
+                     ["firewall", "apply"], ["logs", "scan", "-f"], ["version"]):
             with self.subTest(argv=argv):
                 self.assertTrue(callable(p.parse_args(argv).fn))
 
@@ -37,11 +37,11 @@ class CliTests(unittest.TestCase):
         original = homecore.script
         homecore.script = lambda name, *args: calls.append((name, args)) or 0
         try:
-            self.assertEqual(homecore.main(["backup", "--full", "--dest", "/mnt/usb"]), 0)
+            self.assertEqual(homecore.main(["backup", "--quiet", "--dest", "/mnt/usb"]), 0)
             self.assertEqual(homecore.main(["harden", "ssh"]), 0)
         finally:
             homecore.script = original
-        self.assertEqual(calls, [("backup.sh", ("--full", "--dest", "/mnt/usb")), ("harden.sh", ("ssh",))])
+        self.assertEqual(calls, [("backup.sh", ("--quiet", "--dest", "/mnt/usb")), ("harden.sh", ("ssh",))])
 
     def test_guard_exit_codes(self):
         self.assertEqual(run_cli("guard", "check", "--context", "name", "Living room lamp")[0], 0)
@@ -61,6 +61,14 @@ class CliTests(unittest.TestCase):
         self.assertIsInstance(socks, list)
         for s in socks:
             self.assertIn(s["proto"], ("tcp", "udp"))
+
+    def test_report_strings_collects_device_text(self):
+        rep = {"hosts": [{"ip": "1.2.3.4", "hostname": "evil", "ports": [
+                   {"proto": "tcp", "port": 80, "product": "httpd", "scripts": {"http-title": "Hi"}}]}],
+               "ssdp": [{"ip": "1.2.3.5", "server": "UPnP/1.0"}]}
+        srcs = [s for s, _, _ in homecore.report_strings(rep)]
+        self.assertEqual(srcs, ["1.2.3.4 hostname", "1.2.3.4 tcp/80 banner", "1.2.3.4 tcp/80 http-title",
+                                "1.2.3.5 SSDP server"])
 
     def test_read_env(self):
         with tempfile.NamedTemporaryFile("w", delete=False) as fh:

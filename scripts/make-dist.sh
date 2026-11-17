@@ -8,7 +8,7 @@ mkdir -p dist
 python3 - "$name" <<'PY'
 import os, sys, zipfile
 name = sys.argv[1]
-include = ["README.md", "LICENSE", "VERSION", "cli", "docs", "scripts", "stack", "system"]
+include = ["README.md", "LICENSE", "VERSION", "cli", "docs", "scripts", "system"]
 out = f"dist/{name}.zip"
 with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
     for item in include:

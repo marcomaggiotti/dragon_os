@@ -4,10 +4,6 @@
 HC_ROOT="${HC_ROOT:-/opt/homecore}"
 HC_ETC="${HC_ETC:-/etc/homecore}"
 HC_ENV="$HC_ETC/homecore.env"
-# shellcheck disable=SC2034  # used by the scripts that source this file
-HC_SECRETS="$HC_ROOT/secrets"
-# shellcheck disable=SC2034
-MOSQ_UID=1883
 
 if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
   _c_info=$'\033[1;36m' _c_warn=$'\033[1;33m' _c_err=$'\033[1;31m' _c_ok=$'\033[1;32m' _c_off=$'\033[0m'
@@ -52,14 +48,6 @@ get_kv() {
   local file=$1 key=$2
   [[ -r "$file" ]] || return 0
   awk -F= -v k="$key" '$1 == k { sub(/^[^=]*=/, ""); print; exit }' "$file"
-}
-
-compose() {
-  docker compose --project-directory "$HC_ROOT" -f "$HC_ROOT/docker-compose.yml" "$@"
-}
-
-container_running() {
-  [[ "$(docker inspect -f '{{.State.Running}}' "$1" 2>/dev/null)" == "true" ]]
 }
 
 # Random URL-safe secret (no external deps beyond coreutils).

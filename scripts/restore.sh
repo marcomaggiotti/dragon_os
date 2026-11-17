@@ -23,20 +23,15 @@ if [[ "$archive" == *.enc ]]; then
   src="$work/b.tgz"
 fi
 
-# Refuse archives with absolute paths or '..' (path traversal).
-if tar -tzf "$src" | grep -qE '(^/|(^|/)\.\.(/|$))'; then
-  die "Archive contains unsafe paths — refusing to restore."
-fi
+# Only accept the paths backup.sh writes; refuse absolute paths and '..' (path traversal).
+allowed="^(${HC_ETC#/}|var/lib/homecore)(/|$)"
+while IFS= read -r member; do
+  [[ "$member" =~ (^/|(^|/)\.\.(/|$)) ]] && die "Archive contains unsafe path '$member' — refusing."
+  [[ "$member" =~ $allowed ]] || die "Archive contains unexpected path '$member' — refusing."
+done < <(tar -tzf "$src")
 
-read -r -p "This replaces the current HomeCore configuration and data. Type 'restore' to continue: " a
+read -r -p "This replaces the current HomeCore configuration. Type 'restore' to continue: " a
 [[ "$a" == restore ]] || exit 1
 
-compose down 2>/dev/null || true
-tar -xzf "$src" -C "$work"
-for d in config data secrets; do
-  [[ -d "$work/$d" ]] && { rm -rf "${HC_ROOT:?}/$d"; cp -a "$work/$d" "$HC_ROOT/$d"; }
-done
-[[ -f "$work/.env" ]] && cp -a "$work/.env" "$HC_ROOT/.env"
-[[ -d "$work/${HC_ETC#/}" ]] && cp -a "$work/${HC_ETC#/}/." "$HC_ETC/"
-compose up -d
+tar -xzf "$src" -C / --same-owner --same-permissions
 ok "Restored from $archive. Re-apply the firewall if the network changed: sudo homecore firewall apply"

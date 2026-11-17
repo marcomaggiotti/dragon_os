@@ -1,0 +1,7 @@
+# HomeCore OS — don't install documentation, man pages or info pages:
+# saves SD-card space and makes every apt install faster on a Pi 3B.
+path-exclude /usr/share/doc/*
+path-include /usr/share/doc/*/copyright
+path-exclude /usr/share/man/*
+path-exclude /usr/share/info/*
+path-exclude /usr/share/lintian/*

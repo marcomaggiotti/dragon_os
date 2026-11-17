@@ -1,0 +1,22 @@
+[Unit]
+Description=HomeCore OS — weekly vulnerability scan (standard profile)
+Documentation=file:///opt/homecore/docs/SCANNING.md
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 -I /opt/homecore/cli/homecore.py scan standard --quiet
+Nice=10
+IOSchedulingClass=idle
+# Sandbox: root is needed for raw sockets (ARP/SYN), nothing else.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/homecore
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryMax=250M
+TimeoutStartSec=4h

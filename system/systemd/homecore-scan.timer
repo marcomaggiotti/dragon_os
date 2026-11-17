@@ -1,0 +1,10 @@
+[Unit]
+Description=HomeCore OS — weekly vulnerability scan
+
+[Timer]
+OnCalendar=Sun *-*-* 02:30:00
+RandomizedDelaySec=30min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

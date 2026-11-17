@@ -1,0 +1,22 @@
+[Unit]
+Description=HomeCore OS — LAN device discovery (new devices, ARP anomalies)
+Documentation=file:///opt/homecore/docs/SCANNING.md
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 -I /opt/homecore/cli/homecore.py discover --quiet
+Nice=10
+IOSchedulingClass=idle
+# Sandbox: root is needed for raw sockets (ARP/SYN), nothing else.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/homecore
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryMax=120M
+TimeoutStartSec=30min

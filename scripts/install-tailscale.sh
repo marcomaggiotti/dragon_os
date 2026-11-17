@@ -4,7 +4,7 @@
 #   install-tailscale.sh                 install (if needed) and log in to your tailnet
 #   install-tailscale.sh --install-only  install the package only
 #
-# Home Assistant is then reachable at http://homecore:8123 from your tailnet devices.
+# HomeCore is then reachable over SSH as "homecore" from your tailnet devices.
 # Nothing is exposed to the public internet.
 set -Eeuo pipefail
 # shellcheck source=scripts/lib.sh
@@ -18,6 +18,7 @@ install_pkg() {
   local distro=debian
   if [[ "$ID" == ubuntu ]]; then distro=ubuntu; fi
   log "Installing Tailscale from pkgs.tailscale.com (signed apt repository)…"
+  command -v curl >/dev/null || DEBIAN_FRONTEND=noninteractive apt-get -y -q install --no-install-recommends curl
   install -d -m 0755 /usr/share/keyrings
   curl -fsSL "https://pkgs.tailscale.com/stable/$distro/$VERSION_CODENAME.noarmor.gpg" \
     -o /usr/share/keyrings/tailscale-archive-keyring.gpg

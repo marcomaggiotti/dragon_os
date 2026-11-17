@@ -1,50 +1,36 @@
-# HomeCore OS 1.0
+# HomeCore OS 2.0
 
-A lightweight, security-hardened, **headless** smart-home server kit for the
-Raspberry Pi 3B. It also runs in Oracle VirtualBox for testing. It turns
-Raspberry Pi OS Lite 64-bit (or Debian 12/13) into a Home Assistant hub with
-Zigbee, Bluetooth, Wi-Fi and MQTT devices, private remote access, and a
-terminal control centre.
+A lightweight, hardened, **headless home-network security appliance** for the
+Raspberry Pi 3B. It also runs in Oracle VirtualBox for testing. It discovers
+every device on your LAN, finds insecure services and known vulnerabilities,
+audits your Wi-Fi, watches for new devices and ARP spoofing, and protects
+itself while doing it.
 
-No desktop, no browser on the box, no Node/Python packages on the host. Just
-Docker, three small containers and a stdlib-only Python CLI.
+No desktop, no containers, no Python packages to install: Debian, `nmap`,
+`iw`, and a stdlib-only Python CLI. Between scans it runs no daemons of its own:
+the idle footprint is essentially that of a bare Raspberry Pi OS Lite.
 
 ```
-┌──────────────────────────── Raspberry Pi 3B · Raspberry Pi OS Lite 64-bit ─────────────────────────────┐
-│  nftables firewall (default deny, LAN + Tailscale only, SSH rate limit)       Tailscale (WireGuard)  │
-│  ┌──────────────────┐  ┌──────────────────┐  ┌───────────────────────┐                               │
-│  │ Home Assistant   │  │ Mosquitto MQTT   │  │ Zigbee2MQTT (optional)│◄── USB Zigbee coordinator     │
-│  │ lean config      │◄►│ auth + per-device│◄►│ unprivileged, no caps │                               │
-│  │ BLE via D-Bus    │  │ ACL, read-only   │  └───────────────────────┘                               │
-│  └──────────────────┘  └──────────────────┘     all host-network, no-new-privileges, memory-capped   │
-│  BlueZ · zram swap · journald 64 MB · unattended security updates · SSH keys only                    │
-│  homecore CLI: status · network · bluetooth · devices · mqtt · zigbee · security · guard · backup    │
-└──────────────────────────────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────── Raspberry Pi 3B · Raspberry Pi OS Lite 64-bit (text mode) ───────────────────┐
+│  homecore CLI ── discover ──► nmap ARP sweep ──► inventory.json ──► alerts (new device,         │
+│               │                                                    new port, gateway MAC change)│
+│               ├─ scan ─────► nmap SYN/version + safe NSE checks + IoT ports + MQTT/UPnP probes  │
+│               │              └─► findings with severity & fix ──► reports/ (+ optional CVEs)    │
+│               ├─ wifi ─────► iw scan ──► WEP/WPA1/TKIP, WPS, evil-twin detection                │
+│               └─ guard ────► sanitize device-supplied text (terminal & prompt injection)        │
+│  Self-protection: nftables default-deny (SSH only) · SSH keys · sysctl · auto security updates   │
+│  Lean: zram · KMS/Bluetooth/audio off · no docs/recommends · trimmed boot · timers, no daemons   │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
-
-## Stack
-
-| Layer | Software |
-|---|---|
-| Base OS | Raspberry Pi OS Lite 64-bit (Debian 13), text mode only |
-| Containers | Docker Engine + Compose plugin (no NAT, no iptables, host networking) |
-| Automation | Home Assistant Container, lean configuration |
-| Messaging | Eclipse Mosquitto 2 (authentication + per-device ACL) |
-| Zigbee | Zigbee2MQTT 2.x (ZBDongle-P → `zstack`, ZBDongle-E → `ember`) |
-| Bluetooth | BlueZ, shared with Home Assistant over D-Bus |
-| Wi-Fi / DIY | Home Assistant integrations, ESPHome / MQTT |
-| Remote access | Tailscale (no router port forwarding) |
-| Security | nftables, SSH hardening, sysctl hardening, auto security updates, audit, prompt-injection guard |
-| Terminal | `homecore` CLI and menu |
 
 ## Quick start
 
 ```bash
-scp -r homecore-os-1.0.0 homecore@homecore.local:~/
+scp -r homecore-os-2.0.0 homecore@homecore.local:~/
 ```
 
 ```bash
-cd ~/homecore-os-1.0.0 && chmod +x scripts/*.sh && ./scripts/install-host.sh
+cd ~/homecore-os-2.0.0 && chmod +x scripts/*.sh && ./scripts/install-host.sh
 ```
 
 ```bash
@@ -52,81 +38,104 @@ sudo reboot
 ```
 
 ```bash
-sudo homecore setup
+sudo homecore discover
 ```
 
-Then open `http://homecore.local:8123`.
+```bash
+sudo homecore scan
+```
 
-* Full guide: **[docs/INSTALL.md](docs/INSTALL.md)**
-* Try it first in a VM: **[docs/VIRTUALBOX.md](docs/VIRTUALBOX.md)**
+Guides:
 
-## The `homecore` command
+* [docs/INSTALL.md](docs/INSTALL.md): Raspberry Pi
+* [docs/VIRTUALBOX.md](docs/VIRTUALBOX.md): test in a VM
+* [docs/SCANNING.md](docs/SCANNING.md): what is checked and how to read results
+
+> Scan only networks you own or are authorised to test. HomeCore refuses
+> public addresses and uses nmap's *safe* checks only.
+
+## Commands
 
 Run `homecore` with no arguments for the interactive menu, or:
 
 | Command | What it does |
 |---|---|
-| `homecore status` | host, memory/zram, temperature, throttling, services, containers |
-| `homecore network [test\|neighbors\|ports]` | interfaces, routes, DNS, Wi-Fi, Tailscale, listening ports; connectivity test; LAN devices |
-| `homecore bluetooth [scan]` | adapters, rfkill, BLE scan |
-| `homecore devices` | USB, serial ports, Bluetooth adapters, paired Zigbee devices |
-| `homecore zigbee detect\|enable\|disable\|pair` | coordinator setup and time-limited pairing |
-| `homecore mqtt users\|add\|remove\|listen` | least-privilege MQTT accounts, live traffic |
-| `homecore security` | security audit (PASS/WARN/FAIL, `--json`) |
-| `homecore guard check\|sanitize\|wrap\|ha\|mqtt` | prompt-injection scanner |
-| `homecore firewall status\|apply` | show rules / apply with automatic rollback |
-| `homecore logs [ha\|mqtt\|zigbee\|ssh\|firewall\|…] [-f]` | logs |
-| `homecore start\|stop\|restart [service]` | control the stack |
-| `homecore backup` / `restore` / `update` | maintenance (backup before every update) |
-| `homecore tailscale` / `harden` / `setup` | one-off setup tasks |
+| `homecore discover` | find all devices (IP, MAC, vendor, hostname); alert on new devices / ARP anomalies |
+| `homecore scan [quick\|standard\|deep] [--target CIDR…] [--cve-lookup]` | vulnerability scan with severities and fixes |
+| `homecore report [--all\|--json]` | last scan report |
+| `homecore devices [trust\|untrust\|forget] <mac\|ip> [name]` | device inventory |
+| `homecore alerts` | recent alerts |
+| `homecore wifi [--ssid NAME]` | Wi-Fi audit: encryption, WPS, evil twins (Pi only) |
+| `homecore guard check\|sanitize\|wrap\|report` | prompt/terminal-injection scanner for device-supplied text |
+| `homecore network [test\|neighbors\|ports]` | HomeCore's own network view and connectivity test |
+| `homecore security` | self-audit of HomeCore's hardening |
+| `homecore status` / `boot` | system and security summary / boot-time report |
+| `homecore firewall status\|apply` | HomeCore's own firewall (apply with automatic rollback) |
+| `homecore logs [scan\|firewall\|ssh\|system] [-f]` | logs |
+| `homecore backup` / `restore` / `update` / `harden` / `tailscale` | maintenance |
 
-## Security highlights
+Commands that scan or read the inventory re-run themselves through `sudo`.
 
-* **Firewall**: default-deny nftables. Services are reachable only from the
-  LAN and the tailnet. SSH brute force is throttled in the kernel. Docker can't
-  open ports behind your back.
-* **SSH**: keys only, no root, single allowed user, modern crypto. Changes are
-  validated and rolled back automatically if invalid.
-* **MQTT**: no anonymous access, and a role per client. A hacked ESPHome node can
-  only write its own topics. It cannot unlock your Zigbee lock or impersonate
-  other devices.
-* **Containers**: none privileged, `no-new-privileges`, dropped capabilities,
-  read-only broker, memory limits, Docker socket never mounted.
-* **Prompt injection**: `homecore guard` finds instructions hidden in device
-  names, MQTT discovery payloads and Zigbee names (incl. invisible Unicode,
-  base64 and homoglyphs) before an LLM assistant reads them.
-  [docs/PROMPT-INJECTION.md](docs/PROMPT-INJECTION.md)
-* **Backups**: checksummed, rotated, optionally AES-256 encrypted, weekly timer.
+## What it finds
 
-Details: [docs/SECURITY.md](docs/SECURITY.md) ·
-[docs/NETWORKING.md](docs/NETWORKING.md) · [docs/HARDWARE.md](docs/HARDWARE.md)
+Examples (full list in [docs/SCANNING.md](docs/SCANNING.md)):
 
-## Lightweight by design
+* **critical:**
+  * Docker API or ADB exposed
+  * VNC without a password
+  * Redis/MongoDB/Memcached without authentication
+  * MQTT brokers open to anonymous clients
+  * your Wi-Fi on WEP or open
+  * gateway MAC changed (ARP spoofing)
+* **high:**
+  * Telnet, TFTP, anonymous FTP, SMBv1, SSHv1
+  * SNMP `public`
+  * rogue DHCP servers
+  * nmap `vuln` hits (e.g. MS17-010)
+  * WPA1/TKIP
+  * evil-twin access points
+* **medium:**
+  * RDP/VNC/FTP/RTSP cameras/SQL exposed
+  * weak SSH/TLS
+  * UPnP IGD on the router
+  * WPS
+  * new devices
+  * new open ports
+* **optional:** CVE matching of detected versions via vulners.com (`--cve-lookup`, sends versions online)
 
-* text mode only (`multi-user.target`), `APT::Install-Recommends "false"`
-* zram swap instead of a swap file, 16 MB GPU memory, audio/camera probing off
-* lean Home Assistant config (no `default_config`), recorder tuned for few writes
-* kernel rate limiting instead of fail2ban, `docker` log rotation, journald capped at 64 MB
-* Zigbee2MQTT only runs when a coordinator is configured
-* CLI and guard are pure Python standard library
+The usual blind spot of quick scans is covered: IoT ports outside nmap's top 1000
+(1883 MQTT, 2375 Docker, 5555 ADB, 7547 TR-069, 34567/37777 cameras, …) are
+always checked.
 
-Measured idle footprint in testing: Home Assistant ≈ 280 MB, Mosquitto ≈ 2 MB.
+## Built for a Raspberry Pi 3B
+
+* text mode only; no recommends, no docs/man pages; man-db, ModemManager, wait-online and e2scrub disabled
+* KMS graphics driver off (frees its CMA memory), `gpu_mem=16`, on-board Bluetooth off, audio/camera/display probing off, quiet boot
+* zram compressed swap instead of a swap file; journald capped at 64 MB
+* no daemons of its own: discovery and scans are systemd timers with memory caps and sandboxing
+* CLI imports heavy modules lazily and is byte-compiled at install
+
+## Security of HomeCore itself
+
+The firewall drops everything inbound except SSH from the LAN, rate-limited per
+source in the kernel. SSH is key-only with no root login and modern crypto.
+Kernel network hardening, automatic security updates, a size-capped persistent
+journal, and root-only reports and backups (optionally AES-256 encrypted)
+complete the picture. See [docs/SECURITY.md](docs/SECURITY.md).
 
 ## Repository layout
 
 ```
-scripts/   install-host, setup, harden, firewall, mqtt-user, zigbee, backup,
-           restore, update, install-tailscale, make-dist
-cli/       homecore.py (CLI/menu), homecore_guard.py (prompt-injection scanner)
-stack/     docker-compose.yml, env.example, service configuration templates
-system/    sshd, sysctl, journald, docker, apt, systemd, motd, NetworkManager
-docs/      INSTALL, VIRTUALBOX, SECURITY, NETWORKING, PROMPT-INJECTION, HARDWARE
-tests/     unit tests (python3 -m unittest discover -s tests)
+cli/      homecore.py (CLI/menu), homecore_scan.py (discovery & assessment), homecore_guard.py
+scripts/  install-host, harden, firewall, backup, restore, update, install-tailscale, make-dist
+system/   sshd, sysctl, journald, apt/dpkg, systemd units & timers, motd, NetworkManager
+docs/     INSTALL, VIRTUALBOX, SCANNING, SECURITY, PROMPT-INJECTION
+tests/    python3 -m unittest discover -s tests
 ```
 
-Build the installable ZIP with `scripts/make-dist.sh` → `dist/homecore-os-1.0.0.zip`.
+Build the installable ZIP with `scripts/make-dist.sh` → `dist/homecore-os-2.0.0.zip`.
 
 ## License
 
-MIT, see [LICENSE](LICENSE). Home Assistant, Mosquitto, Zigbee2MQTT, Docker and
-Tailscale are separate projects under their own licences.
+MIT, see [LICENSE](LICENSE). nmap is distributed under its own licence (Nmap
+Public Source License) and is installed from Debian's repositories.

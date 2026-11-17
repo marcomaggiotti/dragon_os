@@ -37,9 +37,9 @@ render() {
   local lan4=${LAN4:-$(detect_lan4 | xargs)}
   local lan6="fe80::/10 ${LAN6:-$(detect_lan6 | xargs)}"
   local tcp udp ts_tcp admin4 admin6
-  tcp=$(join_csv "${LAN_TCP_PORTS:-22 8123 1883 8080}")
+  tcp=$(join_csv "${LAN_TCP_PORTS:-22}")
   udp=$(join_csv "${LAN_UDP_PORTS:-5353}")
-  ts_tcp=$(join_csv "${TS_TCP_PORTS:-22 8123 1883 8080}")
+  ts_tcp=$(join_csv "${TS_TCP_PORTS:-22}")
   admin4=$(join_csv "${ADMIN4:-}")
   admin6=$(join_csv "${ADMIN6:-}")
   local ssh_rate=${SSH_RATE:-8/minute}
@@ -114,6 +114,8 @@ $( [[ -n "$admin6" ]] && echo "    elements = { $admin6 }" )
 
   chain from_lan {
     tcp dport 22 jump ssh_guard
+    # Unicast replies to HomeCore's own UPnP/SSDP discovery (homecore scan)
+    udp sport 1900 accept
 $( [[ -n "$tcp" ]] && echo "    tcp dport { $tcp } accept" )
 $( [[ -n "$udp" ]] && echo "    udp dport { $udp } accept" )
   }
