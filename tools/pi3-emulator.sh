@@ -17,6 +17,8 @@
 #   tools/pi3-emulator.sh stop         power off
 #   tools/pi3-emulator.sh reset        throw the SD image away and prepare a fresh one
 #
+# Requires: qemu-system-aarch64, qemu-img, mtools, xz, curl, openssl, ssh, fdtput (device-tree-compiler).
+#
 # Environment: PI_WORK (default ~/.homecore-pi3), PI_SSH_PORT (2222), PI_PASSWORD (asked if unset),
 #              PI_SMP (4 emulated cores), PI_IMAGE_URL (default: latest Raspberry Pi OS Lite arm64).
 #
@@ -44,8 +46,8 @@ need() {
   for c in "$@"; do command -v "$c" >/dev/null 2>&1 || missing+=("$c"); done
   if (( ${#missing[@]} )); then
     die "Missing: ${missing[*]}
-  Debian/Ubuntu/WSL: sudo apt install qemu-system-arm qemu-utils mtools xz-utils curl openssh-client openssl
-  macOS (Homebrew):  brew install qemu mtools xz openssl"
+  Debian/Ubuntu/WSL: sudo apt install qemu-system-arm qemu-utils mtools xz-utils curl openssh-client openssl device-tree-compiler
+  macOS (Homebrew):  brew install qemu mtools xz openssl dtc"
   fi
 }
 
@@ -64,7 +66,7 @@ hash_password() {
 }
 
 cmd_setup() {
-  need qemu-system-aarch64 qemu-img mcopy mtype xz curl openssl ssh-keygen od
+  need qemu-system-aarch64 qemu-img mcopy mtype xz curl openssl ssh-keygen od fdtput
   mkdir -p "$WORK"
   chmod 700 "$WORK"
 
@@ -90,6 +92,7 @@ cmd_setup() {
 
   # 3. Kernel and the Pi 3B device tree come from the image's own boot partition.
   mcopy -o -i "$IMG@@$off" ::/kernel8.img ::/bcm2710-rpi-3-b.dtb "$WORK/"
+  make_emulator_dtb
 
   # 4. First-boot setup through cloud-init (what Raspberry Pi Imager does on a real card).
   [[ -f "$KEY" ]] || ssh-keygen -q -t ed25519 -N '' -C "homecore-pi3-emulator" -f "$KEY"
@@ -123,14 +126,36 @@ runcmd:
   - [systemctl, enable, --now, ssh]
 EOF
   printf 'dsmode: local\ninstance_id: homecore-pi3-%s\n' "$(date +%s)" >"$WORK/meta-data"
+  # Without this, NetworkManager gives eth0 (the Pi 3B's Ethernet name) only a link-local address.
+  printf '%s\n' 'network:' '  version: 2' '  ethernets:' '    eth0:' '      dhcp4: true' '      optional: true' \
+    >"$WORK/network-config"
   : >"$WORK/ssh"
-  mcopy -o -i "$IMG@@$off" "$WORK/user-data" "$WORK/meta-data" "$WORK/ssh" ::/
+  mcopy -o -i "$IMG@@$off" "$WORK/user-data" "$WORK/meta-data" "$WORK/network-config" "$WORK/ssh" ::/
   rm -f "$WORK/known_hosts"
   say "Ready. Next: $0 start   (first boot takes 3-8 minutes)"
 }
 
+# The emulator's copy of the Pi 3B device tree, adjusted where QEMU's raspi3b model differs
+# from real hardware (nothing on the SD image is changed):
+#  - Bluetooth off and serial aliases swapped, like "dtoverlay=disable-bt": the PL011 UART
+#    becomes ttyAMA0 = the console (otherwise programs get no console at all);
+#  - the SD card on the SDHCI ("mmc") controller instead of SD-host, without DMA: QEMU's
+#    SD-host emulation loses interrupts, and its DMA writes corrupt the card.
+make_emulator_dtb() {
+  local d="$WORK/emu.dtb"
+  cp -f "$WORK/bcm2710-rpi-3-b.dtb" "$d"
+  fdtput -t s "$d" /soc/serial@7e201000/bluetooth status disabled
+  fdtput -t s "$d" /aliases serial0 /soc/serial@7e201000
+  fdtput -t s "$d" /aliases serial1 /soc/serial@7e215040
+  fdtput -t s "$d" /soc/mmc@7e202000 status disabled
+  fdtput -t s "$d" /soc/mmcnr@7e300000 status disabled
+  fdtput -t s "$d" /soc/mmc@7e300000 status okay
+  fdtput -d "$d" /soc/mmc@7e300000 dmas
+  fdtput -d "$d" /soc/mmc@7e300000 dma-names
+}
+
 qemu_cmd() {
-  [[ -f "$IMG" ]] || die "No SD image — run: $0 setup"
+  [[ -f "$IMG" && -f "$WORK/emu.dtb" ]] || die "No SD image — run: $0 setup"
   local off cmdline
   off=$(boot_offset)
   # Honour the image's own cmdline.txt (so changes made inside the Pi apply on the next boot),
@@ -143,7 +168,7 @@ qemu_cmd() {
   # emulator only, nothing is written to the image.
   cmdline="earlycon=pl011,0x3f201000 $cmdline systemd.watchdog_device=/dev/homecore-no-watchdog"
   QEMU=(qemu-system-aarch64 -M raspi3b -m 1G -smp "$SMP"
-        -kernel "$WORK/kernel8.img" -dtb "$WORK/bcm2710-rpi-3-b.dtb"
+        -kernel "$WORK/kernel8.img" -dtb "$WORK/emu.dtb"
         -drive "file=$IMG,if=sd,format=raw"
         -append "$cmdline"
         -device "usb-net,netdev=net0"

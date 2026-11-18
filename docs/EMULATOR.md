@@ -21,13 +21,13 @@ emulator runs fine inside WSL2.
 **Linux / WSL2 (Ubuntu, Debian):**
 
 ```bash
-sudo apt install qemu-system-arm qemu-utils mtools xz-utils curl openssh-client openssl git
+sudo apt install qemu-system-arm qemu-utils mtools xz-utils curl openssh-client openssl device-tree-compiler git
 ```
 
 **macOS (Homebrew):**
 
 ```bash
-brew install qemu mtools xz openssl
+brew install qemu mtools xz openssl dtc
 ```
 
 You need about 4 GB of free disk space (the downloaded image plus an 8 GB sparse
@@ -167,3 +167,16 @@ the emulated Pi.
   unchanged.
 * **Initramfs:** Pi OS's initramfs fails under QEMU, so the kernel mounts the SD
   card directly. The real Pi uses its initramfs as normal.
+* **Device tree:** the emulator boots a copy of the Pi 3B device tree with three
+  adjustments for weak spots in QEMU's `raspi3b` model:
+  * Bluetooth is off and the serial aliases are swapped, as with
+    `dtoverlay=disable-bt` (which HomeCore also uses on the real Pi), so the
+    serial console works;
+  * the SD card uses the SDHCI controller instead of SD-host, which loses
+    interrupts in QEMU;
+  * SD transfers don't use DMA (QEMU's DMA writes corrupt the card).
+
+  The SD image itself is untouched.
+* **Networking:** `setup` adds a cloud-init `network-config` that enables DHCP on
+  `eth0`. Without it, NetworkManager gives the emulated Ethernet only a
+  link-local address.
