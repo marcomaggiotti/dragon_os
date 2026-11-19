@@ -125,6 +125,11 @@ ssh_pwauth: true
 # Grow the root partition to the whole 8 GB card. On a real Pi the initramfs does this; the
 # emulator boots without it, and Pi OS's cloud-init has no growpart/resizefs modules.
 write_files:
+  # The emulator boots without initramfs, so mkinitramfs can't find the root device and
+  # fails every kernel/firmware update (breaking apt). MODULES=most avoids that lookup.
+  - path: /etc/initramfs-tools/conf.d/homecore-emulator.conf
+    content: |
+      MODULES=most
   - path: /usr/local/sbin/homecore-emu-growroot
     permissions: "0755"
     content: |
