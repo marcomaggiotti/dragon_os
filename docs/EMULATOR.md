@@ -80,10 +80,11 @@ tools/pi3-emulator.sh start
 tools/pi3-emulator.sh wait
 ```
 
-The first boot takes several minutes. Pi OS expands the SD card and cloud-init
-creates the user, and it may reboot once on its own. `start` handles reboots
-like real hardware: each reboot re-reads `cmdline.txt`. To watch the serial
-console:
+`wait` returns as soon as SSH answers. The first boot took about 5½ minutes in
+testing (4 host CPU cores): cloud-init creates the user, sets the hostname and
+grows the root filesystem to the whole 8 GB card. Later boots are faster.
+`start` handles reboots like real hardware: when the Pi reboots, the emulator
+restarts it and re-reads `cmdline.txt`. To watch the serial console:
 
 ```bash
 tools/pi3-emulator.sh log
