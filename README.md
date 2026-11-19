@@ -1,4 +1,4 @@
-# HomeCore OS 2.0
+# HomeCore OS 2.0.1
 
 A lightweight, hardened, **headless home-network security appliance** for the
 Raspberry Pi 3B. It also runs in Oracle VirtualBox for testing. It discovers
@@ -26,11 +26,11 @@ the idle footprint is essentially that of a bare Raspberry Pi OS Lite.
 ## Quick start
 
 ```bash
-scp -r homecore-os-2.0.0 homecore@homecore.local:~/
+scp -r homecore-os-2.0.1 homecore@homecore.local:~/
 ```
 
 ```bash
-cd ~/homecore-os-2.0.0 && chmod +x scripts/*.sh && ./scripts/install-host.sh
+cd ~/homecore-os-2.0.1 && chmod +x scripts/*.sh && ./scripts/install-host.sh
 ```
 
 ```bash
@@ -49,6 +49,8 @@ Guides:
 
 * [docs/INSTALL.md](docs/INSTALL.md): Raspberry Pi
 * [docs/VIRTUALBOX.md](docs/VIRTUALBOX.md): test in a VM
+* [docs/EMULATOR.md](docs/EMULATOR.md): test on an **emulated Raspberry Pi 3B**
+  (QEMU, real Raspberry Pi OS image) with `tools/pi3-emulator.sh`
 * [docs/SCANNING.md](docs/SCANNING.md): what is checked and how to read results
 
 > Scan only networks you own or are authorised to test. HomeCore refuses
@@ -133,7 +135,7 @@ docs/     INSTALL, VIRTUALBOX, SCANNING, SECURITY, PROMPT-INJECTION
 tests/    python3 -m unittest discover -s tests
 ```
 
-Build the installable ZIP with `scripts/make-dist.sh` → `dist/homecore-os-2.0.0.zip`.
+Build the installable ZIP with `scripts/make-dist.sh` → `dist/homecore-os-2.0.1.zip`.
 
 ## License
 

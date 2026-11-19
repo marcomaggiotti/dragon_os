@@ -58,13 +58,13 @@ ssh-copy-id homecore@homecore.local
 ```
 
 ```bash
-scp -r homecore-os-2.0.0 homecore@homecore.local:~/
+scp -r homecore-os-2.0.1 homecore@homecore.local:~/
 ```
 
 On the VM:
 
 ```bash
-cd ~/homecore-os-2.0.0 && chmod +x scripts/*.sh && ./scripts/install-host.sh
+cd ~/homecore-os-2.0.1 && chmod +x scripts/*.sh && ./scripts/install-host.sh
 ```
 
 ```bash

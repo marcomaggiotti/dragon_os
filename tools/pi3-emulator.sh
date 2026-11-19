@@ -122,13 +122,21 @@ users:
     ssh_authorized_keys:
 $keys
 ssh_pwauth: true
+# Grow the root partition to the whole 8 GB card. On a real Pi the initramfs does this;
+# the emulator boots without initramfs.
+growpart:
+  mode: auto
+  devices: ["/"]
+resize_rootfs: true
 runcmd:
   - [systemctl, enable, --now, ssh]
 EOF
   printf 'dsmode: local\ninstance_id: homecore-pi3-%s\n' "$(date +%s)" >"$WORK/meta-data"
-  # Without this, NetworkManager gives eth0 (the Pi 3B's Ethernet name) only a link-local address.
-  printf '%s\n' 'network:' '  version: 2' '  ethernets:' '    eth0:' '      dhcp4: true' '      optional: true' \
-    >"$WORK/network-config"
+  # DHCP on the emulated Ethernet (named eth0 or usb0 depending on boot order); without this
+  # NetworkManager may give it only a link-local address.
+  printf '%s\n' 'network:' '  version: 2' '  ethernets:' \
+    '    eth0:' '      dhcp4: true' '      optional: true' \
+    '    usb0:' '      dhcp4: true' '      optional: true' >"$WORK/network-config"
   : >"$WORK/ssh"
   mcopy -o -i "$IMG@@$off" "$WORK/user-data" "$WORK/meta-data" "$WORK/network-config" "$WORK/ssh" ::/
   rm -f "$WORK/known_hosts"
@@ -236,7 +244,7 @@ cmd_copy_kit() {
   local tmp; tmp=$(mktemp -d)
   # Same files as the release ZIP (scripts/make-dist.sh), without git history or caches.
   tar -C "$REPO" --exclude='__pycache__' -cf "$tmp/kit.tar" README.md LICENSE VERSION cli docs scripts system
-  "${SSH[@]}" 'rm -rf ~/homecore-os && mkdir -p ~/homecore-os && tar -xf - -C ~/homecore-os' <"$tmp/kit.tar"
+  "${SSH[@]}" 'rm -rf ~/homecore-os && mkdir -p ~/homecore-os && tar -xmf - -C ~/homecore-os' <"$tmp/kit.tar"
   rm -rf "$tmp"
   say "Kit copied to ~/homecore-os on the Pi. Install with:"
   say "  $0 ssh   then:   cd ~/homecore-os && ./scripts/install-host.sh"

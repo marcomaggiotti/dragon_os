@@ -29,7 +29,7 @@ Raspberry Pi OS Lite 64-bit into a hardened, headless network-security appliance
 ## 2. Copy the kit and install
 
 ```bash
-scp -r homecore-os-2.0.0 homecore@homecore.local:~/
+scp -r homecore-os-2.0.1 homecore@homecore.local:~/
 ```
 
 ```bash
@@ -37,7 +37,7 @@ ssh homecore@homecore.local
 ```
 
 ```bash
-cd ~/homecore-os-2.0.0 && chmod +x scripts/*.sh && ./scripts/install-host.sh
+cd ~/homecore-os-2.0.1 && chmod +x scripts/*.sh && ./scripts/install-host.sh
 ```
 
 ```bash

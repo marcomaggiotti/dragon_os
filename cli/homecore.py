@@ -285,9 +285,11 @@ def cmd_status(_args) -> int:
         t = int(temp) / 1000
         kv("CPU temp", (red if t > 75 else yellow if t > 65 else green)(f"{t:.1f} °C"))
     if have("vcgencmd"):
-        thr = run(["vcgencmd", "get_throttled"]).out.strip().split("=")[-1]
-        if thr and thr != "0x0":
-            kv("Throttling", red(f"{thr} — check the power supply (5V/2.5A)"))
+        # Expected output: "throttled=0x0". Anything else (e.g. no access to /dev/vcio as a
+        # normal user, or no firmware under emulation) is not a throttling report.
+        m = re.match(r"throttled=(0x[0-9a-fA-F]+)$", run(["vcgencmd", "get_throttled"]).out.strip())
+        if m and int(m.group(1), 16):
+            kv("Throttling", red(f"{m.group(1)} — under-voltage/overheating seen; check the 5V/2.5A supply"))
     kv("Addresses", ", ".join(a for i in interfaces() for a in i["addrs"]) or "none")
 
     header("Services")

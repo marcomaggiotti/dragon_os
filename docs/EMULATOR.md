@@ -33,18 +33,24 @@ brew install qemu mtools xz openssl dtc
 You need about 4 GB of free disk space (the downloaded image plus an 8 GB sparse
 SD-card image) and an internet connection to `downloads.raspberrypi.com`.
 
-## 2. Get the kit
+## 2. Get the kit (inside WSL / your Linux or macOS terminal)
+
+Keep everything in your **Linux home folder** (`~`). On Windows, do not work
+under `/mnt/c/...`: disk access from WSL to Windows drives is very slow, and the
+emulator writes a lot to its SD-card image.
+
+On Windows, copy the release ZIP from your Downloads folder into WSL and unpack
+it. Replace `YOUR_WINDOWS_USER` with your Windows user name:
 
 ```bash
-git clone -b claude/charming-cray-qu7fmd https://github.com/marcomaggiotti/dragon_os.git
+cd ~ && cp /mnt/c/Users/YOUR_WINDOWS_USER/Downloads/homecore-os-2.0.1.zip . && python3 -m zipfile -e homecore-os-2.0.1.zip .
 ```
 
 ```bash
-cd dragon_os
+cd ~/homecore-os-2.0.1 && chmod +x scripts/*.sh tools/*.sh
 ```
 
-Alternatively, extract the release ZIP and `cd` into it. The script copies the
-kit from the folder it lives in.
+All the following commands are run from `~/homecore-os-2.0.1`.
 
 ## 3. Create the emulated Pi
 
