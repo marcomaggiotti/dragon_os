@@ -122,14 +122,22 @@ users:
     ssh_authorized_keys:
 $keys
 ssh_pwauth: true
-# Grow the root partition to the whole 8 GB card. On a real Pi the initramfs does this;
-# the emulator boots without initramfs.
-growpart:
-  mode: auto
-  devices: ["/"]
-resize_rootfs: true
+# Grow the root partition to the whole 8 GB card. On a real Pi the initramfs does this; the
+# emulator boots without it, and Pi OS's cloud-init has no growpart/resizefs modules.
+write_files:
+  - path: /usr/local/sbin/homecore-emu-growroot
+    permissions: "0755"
+    content: |
+      #!/bin/sh
+      src=\$(findmnt -no SOURCE /)
+      [ "\$src" = /dev/root ] && src=/dev/\$(lsblk -rno NAME,MOUNTPOINT | awk '\$2 == "/" { print \$1 }')
+      disk=/dev/\$(lsblk -no PKNAME "\$src")
+      part=\$(cat "/sys/class/block/\${src##*/}/partition")
+      growpart "\$disk" "\$part" || true
+      resize2fs "\$src"
 runcmd:
   - [systemctl, enable, --now, ssh]
+  - [/usr/local/sbin/homecore-emu-growroot]
 EOF
   printf 'dsmode: local\ninstance_id: homecore-pi3-%s\n' "$(date +%s)" >"$WORK/meta-data"
   # DHCP on the emulated Ethernet (named eth0 or usb0 depending on boot order); without this
