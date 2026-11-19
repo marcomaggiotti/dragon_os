@@ -82,7 +82,7 @@ tools/pi3-emulator.sh wait
 
 `wait` returns as soon as SSH answers. The first boot took about 5½ minutes in
 testing (4 host CPU cores): cloud-init creates the user, sets the hostname and
-grows the root filesystem to the whole 8 GB card. Later boots are faster.
+grows the root filesystem to the whole 8 GB card. Later boots took about 2¼ minutes.
 `start` handles reboots like real hardware: when the Pi reboots, the emulator
 restarts it and re-reads `cmdline.txt`. To watch the serial console:
 
